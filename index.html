@@ -1,0 +1,187 @@
+<html>
+<body>
+<style>
+#mycanvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 600px;
+    height: 600px;
+    margin: -300px 0 0 -300px;
+}
+</style>
+
+<canvas id="mycanvas" width="600" height="600"></canvas>
+
+<script>
+/**
+ * http://stackoverflow.com/a/9493060/330558
+ *
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   {number}  h       The hue
+ * @param   {number}  s       The saturation
+ * @param   {number}  l       The lightness
+ * @return  {Array}           The RGB representation
+ */
+function hslToRgb(h, s, l){
+    var r, g, b;
+
+    if (s == 0) {
+        r = g = b = l; // achromatic
+    } else {
+        var hue2rgb = function hue2rgb(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function create_dots(x, y, n) {
+    var retval = [];
+    for (i = 0; i < n; i++) {
+        retval.push({
+            x:                x,
+            y:                y,
+            rad:              i / n * Math.PI,
+            rad_offset:       i / n * Math.PI,
+            hue:              0,
+            hue_offset:       i / n * 2 * Math.PI,
+            lightness:        0,
+            lightness_offset: i / n * 2 * Math.PI
+        });
+    }
+    return retval;
+}
+
+function draw_circle(ctx, x, y, radius, hue, lightness) {
+    // circle
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+    // ctx.fillStyle = 'white';
+    // var l = Math.pow(distance({x: x, y: y}, {x: cw, y: ch}) / cw, 2);
+    // var l = 0.65;
+    var rgb = hslToRgb(hue, 0.75, lightness);
+    ctx.fillStyle = 'rgba(' +
+        rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + 0.5 +
+    ')';
+    ctx.fill();
+    // ctx.lineWidth = 1;
+    // ctx.strokeStyle = '#003300';
+    // ctx.stroke();
+}
+
+function distance(a, b) {
+    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+}
+
+var canvas           = document.getElementById('mycanvas'),
+    ctx              = canvas.getContext('2d'),
+    i                = 0,
+    dot              = null,
+    n_dots           = 1,
+    rad_global       = 0,
+    rad_hue          = 0,
+    rad_lightness    = 0,
+    rad_rad_hue      = 100,
+    rad_rad_hue_step = 1,
+    border           = 20,
+    ch               = canvas.height / 2 - border,
+    cw               = canvas.width / 2 - border,
+    dots             = create_dots(cw, ch, n_dots);
+
+function step(time) {
+    // Advance the global radians.
+    rad_global += Math.PI / 100;
+    if (rad_global > 2 * Math.PI) {
+        rad_global -= 2 * Math.PI;
+        n_dots = Math.min(100, n_dots * 2);
+        dots = create_dots(cw, ch, n_dots);
+    }
+
+    rad_rad_hue += rad_rad_hue_step;
+    if (rad_rad_hue > 150 || rad_rad_hue < 40) {
+        rad_rad_hue_step *= -1;
+    }
+
+    rad_hue += Math.PI / 150;
+    // rad_hue += Math.PI / 16;
+    // rad_hue += Math.PI / 50;
+    // rad_hue += Math.PI / 100;
+    // rad_hue += Math.PI / 150;
+    // rad_hue += Math.PI / 200;
+    // rad_hue += Math.PI / rad_rad_hue;
+    if (rad_hue > 2 * Math.PI) {
+        rad_hue -= 2 * Math.PI;
+    }
+
+    rad_lightness += Math.PI / 200;
+    if (rad_lightness > 2 * Math.PI) {
+        rad_lightness -= 2 * Math.PI;
+    }
+
+    // Clear the canvas.
+    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (i = 0; i < dots.length; i++) {
+
+        dot = dots[i];
+
+        // update the position
+        dot.y = border + ch + ch * Math.sin(dot.rad) *
+            Math.cos(rad_global + dot.rad_offset);
+        dot.x = border + cw + cw * Math.cos(dot.rad) *
+            Math.cos(rad_global + dot.rad_offset);
+
+        dot.hue = 1 - (1 + Math.cos(rad_hue + dot.hue_offset)) / 2;
+
+        dot.lightness = 1 - (1 + Math.cos(rad_lightness + dot.lightness_offset)) / 2;
+
+        // lines
+//      ctx.beginPath();
+//      ctx.moveTo(border + cw, border + ch);
+//      ctx.lineTo(dot.x, dot.y);
+//      ctx.lineWidth = 1;
+//      ctx.stroke();
+    }
+
+    // draw circles
+    for (i = 0; i < dots.length; i++) {
+        dot = dots[i];
+        // draw_circle(ctx, dot.x, dot.y, 19, dot.hue, dot.lightness);
+        draw_circle(ctx, dot.x, dot.y, 19, dot.hue, 0.65);
+    }
+
+    window.requestAnimationFrame(step);
+}
+
+window.requestAnimationFrame(step);
+
+window.onkeydown = function(event) {
+    // 38 up arrow
+    if (event.keyCode == 38) {
+        n_dots = Math.min(100, n_dots + 1);
+        dots = create_dots(cw, ch, n_dots);
+    }
+    // 40 down arrow
+    else if (event.keyCode == 40) {
+        n_dots = Math.max(1, n_dots - 1);
+        dots = create_dots(cw, ch, n_dots);
+    }
+}
+</script>
